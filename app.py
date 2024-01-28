@@ -39,8 +39,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'your-email@gmail.com'
-app.config['MAIL_PASSWORD'] = 'your-password'
+app.config['MAIL_USERNAME'] = 'rprocess58@gmail.com'
+app.config['MAIL_PASSWORD'] = 'adxj cpnb fnua lwaq'
 
 # Create the Mail instance using the application settings
 mail = Mail(app)
@@ -76,7 +76,7 @@ class EmailConfirmation(db.Model):
     def is_expired(self):
         # Define a method to check if the confirmation code is expired
         # For example, you can set an expiration time of 1 hour
-        return datetime.datetime.now(tz.UTC) > self.created_at + datetime.timedelta(hours=1)
+        return datetime.datetime.now(tz.UTC) > self.created_at + datetime.timedelta(minutes=15)
 
 
 # Send the confirmation code to the user's email address
@@ -131,7 +131,7 @@ class User(db.Model):
 
     # Define a __repr__ method to print the user information
     def __repr__(self):
-        return f"User('{self.username}', '{self.password}')"
+        return f"User('{self.username}', '{self.password}', {self.email})"
 
 
 # Define a page_not_found error handler for 404 errors
