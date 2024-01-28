@@ -1,26 +1,8 @@
-"""Этот файл содержит код для простого веб-приложения, которое реализует аутентификацию пользователя и подтверждение
-электронной почты.
-
-Код написан на языке Python и использует веб-фреймворк Flask. Для управления базой данных используется библиотека
-Flask-SQLAlchemy, и библиотека Flask-Mail для отправки электронной почты.
-
-Код реализует следующие возможности:
-
-1. Аутентификация пользователей: Пользователи могут зарегистрироваться и войти в приложение. После входа они получают
-доступ к защищенной странице. 2. Подтверждение электронной почты: После регистрации пользователи должны подтвердить
-свой адрес электронной почты, нажав на ссылку в письме с подтверждением. 3. Сброс пароля: Пользователи могут сбросить
-свой пароль, если они его забыли.
-
-Код хорошо задокументирован с использованием докстрингов Python, которые следуют определенному формату для
-документирования функций и методов. Это позволяет другим разработчикам легко понять код и внести свой вклад в его
-поддержку и улучшение."""
-
-from flask import Flask, request, render_template
+import secrets
+from datetime import datetime, timedelta, timezone
+from flask import Flask, request, render_template, redirect, url_for
 from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
-import datetime
-import secrets
-from dateutil import tz
 
 # Create the Flask application
 app = Flask(__name__)
@@ -28,7 +10,6 @@ app = Flask(__name__)
 # Set the upload folder for the application
 UPLOAD_FOLDER = 'aaa'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
 # Set the SQLAlchemy database URI
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 
@@ -59,32 +40,19 @@ def generate_confirmation_code():
 
 # Create the EmailConfirmation model
 class EmailConfirmation(db.Model):
-    """
-    Этот класс представляет подтверждение электронной почты для пользователя.
-
-    Код подтверждения хранится в поле confirmation_code, а временная метка - в поле created_at.
-    В поле user_id хранится ссылка внешнего ключа на связанную модель User.
-
-    Метод is_expired можно использовать для проверки того, не истек ли срок действия кода подтверждения.
-    """
-
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    confirmation_code = db.Column(db.String(120), nullable=False)
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    confirmation_code = db.Column(db.String(120), nullable=False, unique=True)
 
-    def is_expired(self):
-        # Define a method to check if the confirmation code is expired
-        # For example, you can set an expiration time of 1 hour
-        return datetime.datetime.now(tz.UTC) > self.created_at + datetime.timedelta(minutes=15)
+
 
 
 # Send the confirmation code to the user's email address
 def send_confirmation_code(to_email, confirmation_code):
     """
-    Send a confirmation code to the specified email address.
+    Отправка кода подтверждения на указанный адрес электронной почты.
 
-    The confirmation code is included in the email body.
+    Код подтверждения включается в тело письма.
     """
 
     msg = Message('Подтверждение регистрации',
@@ -96,24 +64,19 @@ def send_confirmation_code(to_email, confirmation_code):
 
 # Confirm the registration based on the entered confirmation code
 def confirm_registration(entered_code, confirmation_code):
-    """
-    Confirm the registration based on the entered confirmation code.
-
-    The entered code and confirmation code are compared to ensure they match.
-    """
-
     return entered_code == confirmation_code
 
 
 # Create the User model
 class User(db.Model):
     """
-    This class represents a user in the application.
+    Этот класс представляет пользователя в приложении.
 
-    The username, password, and email fields are required. The email field must be unique, and the password is hashed
-    using the Flask-bcrypt library.
+    Поля имени пользователя, пароля и электронной почты являются обязательными. Поле электронной почты должно быть
+    уникальным, а пароль хэшируется с помощью библиотеки Flask-bcrypt.
 
-    The send_confirmation_code method can be used to send a confirmation code to the user's email address.
+    Метод send_confirmation_code можно использовать для отправки кода подтверждения на адрес электронной почты
+    пользователя.
     """
 
     id = db.Column(db.Integer, primary_key=True)
@@ -153,6 +116,10 @@ def log():
 
 
 # Define the register route for the registration page
+
+
+# ...
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -170,16 +137,21 @@ def register():
             db.session.add(user)
             db.session.commit()
             # Send the confirmation code to the user's email address
-            user.send_confirmation_code()
-            # Return a confirmation message
-            return render_template('confirmation_sent.html')
+            confirmation_code = generate_confirmation_code()
+            email_confirmation = EmailConfirmation(user_id=user.id, confirmation_code=confirmation_code)
+            db.session.add(email_confirmation)
+            db.session.commit()
+            send_confirmation_code(user.email, confirmation_code)
+            # Redirect to the confirm_email page with the confirmation code
+            return redirect(url_for('confirm_email', confirmation_code=email_confirmation.confirmation_code))
 
 
-# Define the confirm_email route for the email confirmation page
+# Define the confirm_email route for the email confirmation pa
+
 @app.route('/confirm-email/<confirmation_code>', methods=['GET', 'POST'])
 def confirm_email(confirmation_code):
     email_confirmation = EmailConfirmation.query.filter_by(confirmation_code=confirmation_code).first()
-    if email_confirmation and not email_confirmation.is_expired():
+    if email_confirmation:
         user = User.query.get(email_confirmation.user_id)
         user.email_confirmed = True
         db.session.commit()
